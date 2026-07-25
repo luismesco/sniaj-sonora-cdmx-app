@@ -1,15 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import appDataset from "../data/processed/app_universities_sonora_cdmx.json";
 
 type Territory = "Sonora" | "CDMX";
 type Regime = "Publica" | "Privada";
 type LawStatus = "Si" | "No" | "Por verificar";
+type Scope = Territory | "Todos";
 
 type Institution = {
   id: string;
   name: string;
-  campus: string;
   acronym: string;
   territory: Territory;
   municipality: string;
@@ -24,391 +25,39 @@ type Institution = {
   updated: string;
   lat: number;
   lng: number;
+  coordinatePrecision?: string;
+  programCount?: number;
+  lawProgramCount?: number;
+  samplePrograms?: string[];
+  lawPrograms?: string[];
+  reportedUnits: string[];
+  unitCount: number;
   themes: string[];
   nextMove: string;
 };
 
 type MexicoState = {
   code: string;
-  name: Territory | string;
+  name: Territory;
   x: number;
   y: number;
-  status: "piloto" | "pendiente";
+  w: number;
+  h: number;
+  status: "datos" | "pendiente";
 };
 
 const mexicoStates: MexicoState[] = [
-  { code: "BC", name: "Baja California", x: 9, y: 12, status: "pendiente" },
-  { code: "SON", name: "Sonora", x: 20, y: 20, status: "piloto" },
-  { code: "CHH", name: "Chihuahua", x: 35, y: 22, status: "pendiente" },
-  { code: "BCS", name: "Baja California Sur", x: 15, y: 39, status: "pendiente" },
-  { code: "SIN", name: "Sinaloa", x: 28, y: 43, status: "pendiente" },
-  { code: "DGO", name: "Durango", x: 42, y: 43, status: "pendiente" },
-  { code: "COA", name: "Coahuila", x: 53, y: 30, status: "pendiente" },
-  { code: "NL", name: "Nuevo Leon", x: 62, y: 39, status: "pendiente" },
-  { code: "TAM", name: "Tamaulipas", x: 70, y: 49, status: "pendiente" },
-  { code: "NAY", name: "Nayarit", x: 37, y: 58, status: "pendiente" },
-  { code: "ZAC", name: "Zacatecas", x: 50, y: 53, status: "pendiente" },
-  { code: "SLP", name: "San Luis Potosi", x: 61, y: 58, status: "pendiente" },
-  { code: "AGS", name: "Aguascalientes", x: 51, y: 63, status: "pendiente" },
-  { code: "JAL", name: "Jalisco", x: 44, y: 70, status: "pendiente" },
-  { code: "GTO", name: "Guanajuato", x: 57, y: 69, status: "pendiente" },
-  { code: "QRO", name: "Queretaro", x: 64, y: 69, status: "pendiente" },
-  { code: "HGO", name: "Hidalgo", x: 70, y: 68, status: "pendiente" },
-  { code: "COL", name: "Colima", x: 44, y: 80, status: "pendiente" },
-  { code: "MICH", name: "Michoacan", x: 55, y: 78, status: "pendiente" },
-  { code: "MEX", name: "Estado de Mexico", x: 67, y: 76, status: "pendiente" },
-  { code: "CDMX", name: "CDMX", x: 70, y: 78, status: "piloto" },
-  { code: "MOR", name: "Morelos", x: 70, y: 83, status: "pendiente" },
-  { code: "PUE", name: "Puebla", x: 76, y: 78, status: "pendiente" },
-  { code: "TLX", name: "Tlaxcala", x: 77, y: 73, status: "pendiente" },
-  { code: "VER", name: "Veracruz", x: 82, y: 67, status: "pendiente" },
-  { code: "GRO", name: "Guerrero", x: 66, y: 91, status: "pendiente" },
-  { code: "OAX", name: "Oaxaca", x: 80, y: 91, status: "pendiente" },
-  { code: "TAB", name: "Tabasco", x: 91, y: 82, status: "pendiente" },
-  { code: "CHP", name: "Chiapas", x: 91, y: 93, status: "pendiente" },
-  { code: "CAM", name: "Campeche", x: 94, y: 72, status: "pendiente" },
-  { code: "YUC", name: "Yucatan", x: 97, y: 61, status: "pendiente" },
-  { code: "QROO", name: "Quintana Roo", x: 99, y: 70, status: "pendiente" },
+  { code: "SON", name: "Sonora", x: 16, y: 10, w: 20, h: 27, status: "datos" },
+  { code: "CDMX", name: "CDMX", x: 54.5, y: 59, w: 9, h: 7.5, status: "datos" },
 ];
 
-const institutions: Institution[] = [
-  {
-    id: "unison-hermosillo",
-    name: "Universidad de Sonora",
-    campus: "Campus Hermosillo",
-    acronym: "UNISON HMO",
-    territory: "Sonora",
-    municipality: "Hermosillo",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "L-V, matutino y vespertino",
-    legalBasis: "Fundamento publico; RVOE no aplica como particular",
-    enrollment: 8200,
-    opportunity: 93,
-    source: "Oferta educativa institucional",
-    updated: "2026-07-25",
-    lat: 29.083,
-    lng: -110.961,
-    themes: ["Administrativo", "Constitucional", "Fiscal"],
-    nextMove: "Validar calendario de Facultad y definir conferencia base en Hermosillo.",
-  },
-  {
-    id: "unison-caborca",
-    name: "Universidad de Sonora",
-    campus: "Campus Caborca",
-    acronym: "UNISON CAB",
-    territory: "Sonora",
-    municipality: "Caborca",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "L-V por confirmar",
-    legalBasis: "Fundamento publico; RVOE no aplica como particular",
-    enrollment: 2100,
-    opportunity: 74,
-    source: "Oferta educativa institucional",
-    updated: "2026-07-25",
-    lat: 30.712,
-    lng: -112.164,
-    themes: ["Ruta norte", "Derecho publico"],
-    nextMove: "Confirmar capacidad de sede y si conviene ruta Hermosillo-Caborca-Nogales.",
-  },
-  {
-    id: "unison-nogales",
-    name: "Universidad de Sonora",
-    campus: "Campus Nogales",
-    acronym: "UNISON NOG",
-    territory: "Sonora",
-    municipality: "Nogales",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "L-V por confirmar",
-    legalBasis: "Fundamento publico; RVOE no aplica como particular",
-    enrollment: 1900,
-    opportunity: 72,
-    source: "Oferta educativa institucional",
-    updated: "2026-07-25",
-    lat: 31.301,
-    lng: -110.938,
-    themes: ["Frontera", "Vinculacion regional"],
-    nextMove: "Confirmar calendario y aliados locales antes de integrarla a gira.",
-  },
-  {
-    id: "itson-obregon",
-    name: "Instituto Tecnologico de Sonora",
-    campus: "Campus Ciudad Obregon",
-    acronym: "ITSON OBR",
-    territory: "Sonora",
-    municipality: "Cajeme",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Mixta / tetramestral por confirmar",
-    schedule: "L-V y ventanas ejecutivas por confirmar",
-    legalBasis: "Fundamento publico; programa citado en comunicacion institucional",
-    enrollment: 5300,
-    opportunity: 84,
-    source: "Sitio institucional",
-    updated: "2026-07-25",
-    lat: 27.486,
-    lng: -109.94,
-    themes: ["Fiscal", "Responsabilidades", "Justicia administrativa"],
-    nextMove: "Confirmar oferta vigente de Derecho por campus y disponibilidad sabatina.",
-  },
-  {
-    id: "ues-hermosillo",
-    name: "Universidad Estatal de Sonora",
-    campus: "Unidad Hermosillo",
-    acronym: "UES HMO",
-    territory: "Sonora",
-    municipality: "Hermosillo",
-    regime: "Publica",
-    lawStatus: "Por verificar",
-    modality: "Por levantar",
-    schedule: "Pendiente",
-    legalBasis: "Fundamento publico; oferta de Derecho pendiente de verificacion",
-    enrollment: 3600,
-    opportunity: 61,
-    source: "Convocatoria/oferta institucional pendiente de cruce",
-    updated: "2026-07-25",
-    lat: 29.096,
-    lng: -110.955,
-    themes: ["Aliado regional", "Educacion continua"],
-    nextMove: "Confirmar si imparte Derecho; si no, clasificar como aliado no juridico.",
-  },
-  {
-    id: "udeh-hermosillo",
-    name: "Universidad de Hermosillo",
-    campus: "Campus Hermosillo",
-    acronym: "UdeH",
-    territory: "Sonora",
-    municipality: "Hermosillo",
-    regime: "Privada",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "Por confirmar",
-    legalBasis: "RVOE por programa pendiente de captura",
-    enrollment: 1600,
-    opportunity: 73,
-    source: "Sitio institucional",
-    updated: "2026-07-25",
-    lat: 29.09,
-    lng: -110.977,
-    themes: ["Derecho", "Ciencias politicas", "Evento juridico"],
-    nextMove: "Capturar RVOE especifico y contacto de coordinacion de Derecho.",
-  },
-  {
-    id: "ctum-hermosillo",
-    name: "Colegio Tecnologico Universitario de Mexico",
-    campus: "Campus Hermosillo",
-    acronym: "CTUM",
-    territory: "Sonora",
-    municipality: "Hermosillo",
-    regime: "Privada",
-    lawStatus: "Si",
-    modality: "Por confirmar",
-    schedule: "Por confirmar",
-    legalBasis: "RVOE 20190075 citado por la institucion",
-    enrollment: 900,
-    opportunity: 66,
-    source: "Sitio institucional",
-    updated: "2026-07-25",
-    lat: 29.075,
-    lng: -110.955,
-    themes: ["Derecho", "RVOE capturable"],
-    nextMove: "Validar RVOE en fuente oficial y geocodificar sede exacta.",
-  },
-  {
-    id: "unam-derecho",
-    name: "Universidad Nacional Autonoma de Mexico",
-    campus: "Facultad de Derecho, Ciudad Universitaria",
-    acronym: "UNAM",
-    territory: "CDMX",
-    municipality: "Coyoacan",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Presencial / abierta / distancia",
-    schedule: "L-V y opciones flexibles",
-    legalBasis: "Autonomia universitaria",
-    enrollment: 14500,
-    opportunity: 97,
-    source: "Sitio institucional",
-    updated: "2026-07-25",
-    lat: 19.332,
-    lng: -99.188,
-    themes: ["Constitucional", "Electoral", "Datos juridicos"],
-    nextMove: "Segmentar Facultad, SUAyED, posgrado y entidades juridicas relacionadas.",
-  },
-  {
-    id: "uam-azcapotzalco",
-    name: "Universidad Autonoma Metropolitana",
-    campus: "Unidad Azcapotzalco",
-    acronym: "UAM AZC",
-    territory: "CDMX",
-    municipality: "Azcapotzalco",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "Matutino; medio tiempo y tiempo completo",
-    legalBasis: "Fundamento publico",
-    enrollment: 4300,
-    opportunity: 86,
-    source: "Oferta de licenciaturas UAM",
-    updated: "2026-07-25",
-    lat: 19.503,
-    lng: -99.187,
-    themes: ["Administrativo", "Investigacion", "Politicas publicas"],
-    nextMove: "Confirmar auditorio y calendario trimestral.",
-  },
-  {
-    id: "uam-cuajimalpa",
-    name: "Universidad Autonoma Metropolitana",
-    campus: "Unidad Cuajimalpa",
-    acronym: "UAM CUA",
-    territory: "CDMX",
-    municipality: "Cuajimalpa",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "Unico; tiempo completo",
-    legalBasis: "Fundamento publico",
-    enrollment: 1800,
-    opportunity: 80,
-    source: "Oferta de licenciaturas UAM",
-    updated: "2026-07-25",
-    lat: 19.365,
-    lng: -99.282,
-    themes: ["Derecho", "Sustentabilidad", "Administracion publica"],
-    nextMove: "Agrupar con universidades del poniente por cercania territorial.",
-  },
-  {
-    id: "uacm-cuautepec",
-    name: "Universidad Autonoma de la Ciudad de Mexico",
-    campus: "Plantel Cuautepec",
-    acronym: "UACM",
-    territory: "CDMX",
-    municipality: "Gustavo A. Madero",
-    regime: "Publica",
-    lawStatus: "Si",
-    modality: "Escolarizado",
-    schedule: "Vespertino",
-    legalBasis: "Fundamento publico local",
-    enrollment: 2200,
-    opportunity: 78,
-    source: "Oferta academica UACM",
-    updated: "2026-07-25",
-    lat: 19.541,
-    lng: -99.139,
-    themes: ["Derechos humanos", "Constitucional", "Derecho administrativo"],
-    nextMove: "Confirmar disponibilidad de plantel y contacto de programa.",
-  },
-  {
-    id: "itam-cdmx",
-    name: "Instituto Tecnologico Autonomo de Mexico",
-    campus: "Rio Hondo",
-    acronym: "ITAM",
-    territory: "CDMX",
-    municipality: "Alvaro Obregon",
-    regime: "Privada",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "Por confirmar",
-    legalBasis: "RVOE/fundamento particular pendiente de captura",
-    enrollment: 2500,
-    opportunity: 88,
-    source: "Sitio institucional por verificar",
-    updated: "2026-07-25",
-    lat: 19.344,
-    lng: -99.2,
-    themes: ["Fiscal", "Constitucional", "Economia publica"],
-    nextMove: "Validar RVOE y ubicar contacto de licenciatura en Derecho.",
-  },
-  {
-    id: "up-cdmx",
-    name: "Universidad Panamericana",
-    campus: "Campus Mexico",
-    acronym: "UP",
-    territory: "CDMX",
-    municipality: "Benito Juarez",
-    regime: "Privada",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "Por confirmar",
-    legalBasis: "RVOE por programa pendiente de captura",
-    enrollment: 2700,
-    opportunity: 85,
-    source: "Sitio institucional por verificar",
-    updated: "2026-07-25",
-    lat: 19.372,
-    lng: -99.181,
-    themes: ["Empresa", "Fiscal", "Posgrado"],
-    nextMove: "Verificar plan de estudios y opciones de educacion continua.",
-  },
-  {
-    id: "ibero-cdmx",
-    name: "Universidad Iberoamericana",
-    campus: "Campus Ciudad de Mexico",
-    acronym: "IBERO",
-    territory: "CDMX",
-    municipality: "Alvaro Obregon",
-    regime: "Privada",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "Por confirmar",
-    legalBasis: "RVOE por programa pendiente de captura",
-    enrollment: 3100,
-    opportunity: 82,
-    source: "Sitio institucional por verificar",
-    updated: "2026-07-25",
-    lat: 19.371,
-    lng: -99.263,
-    themes: ["Derechos humanos", "Publico", "Clinicas juridicas"],
-    nextMove: "Confirmar coordinacion de Derecho y calendario academico.",
-  },
-  {
-    id: "lasalle-cdmx",
-    name: "Universidad La Salle",
-    campus: "Campus Condesa",
-    acronym: "La Salle",
-    territory: "CDMX",
-    municipality: "Cuauhtemoc",
-    regime: "Privada",
-    lawStatus: "Si",
-    modality: "Presencial",
-    schedule: "Por confirmar",
-    legalBasis: "RVOE por programa pendiente de captura",
-    enrollment: 2800,
-    opportunity: 79,
-    source: "Sitio institucional por verificar",
-    updated: "2026-07-25",
-    lat: 19.408,
-    lng: -99.18,
-    themes: ["Derecho", "Vinculacion", "Educacion continua"],
-    nextMove: "Validar RVOE y oportunidades para conferencia vespertina.",
-  },
-  {
-    id: "uvm-coyoacan",
-    name: "Universidad del Valle de Mexico",
-    campus: "Campus Coyoacan",
-    acronym: "UVM COY",
-    territory: "CDMX",
-    municipality: "Coyoacan",
-    regime: "Privada",
-    lawStatus: "Si",
-    modality: "Presencial / ejecutiva por verificar",
-    schedule: "Por confirmar",
-    legalBasis: "RVOE por programa pendiente de captura",
-    enrollment: 3600,
-    opportunity: 77,
-    source: "Sitio institucional por verificar",
-    updated: "2026-07-25",
-    lat: 19.33,
-    lng: -99.146,
-    themes: ["Ejecutivo", "Derecho", "Sabatino"],
-    nextMove: "Confirmar modalidad exacta de Derecho y horarios sabatinos.",
-  },
-];
+const institutions = appDataset.records as Institution[];
+const sourceSummary = appDataset as {
+  generatedAt: string;
+  recordCount: number;
+  sources: string[];
+  notes: string[];
+};
 
 const weights = [
   ["Demanda", 25],
@@ -422,15 +71,15 @@ const weights = [
 ] as const;
 
 export default function Home() {
-  const [territory, setTerritory] = useState<Territory | "Todos">("Todos");
+  const [territory, setTerritory] = useState<Scope>("Todos");
   const [regime, setRegime] = useState<Regime | "Todos">("Todos");
   const [lawOnly, setLawOnly] = useState(false);
-  const [selectedState, setSelectedState] = useState<Territory | string>("Sonora");
-  const [selected, setSelected] = useState("unison-hermosillo");
+  const [selectedState, setSelectedState] = useState<Scope>("Todos");
+  const [selected, setSelected] = useState(institutions[0]?.id ?? "");
   const [note, setNote] = useState("");
 
   const selectedStateInventory = useMemo(
-    () => institutions.filter((item) => item.territory === selectedState),
+    () => institutions.filter((item) => selectedState === "Todos" || item.territory === selectedState),
     [selectedState],
   );
 
@@ -447,33 +96,42 @@ export default function Home() {
   const stateInstitutions = useMemo(
     () =>
       institutions
-        .filter((item) => item.territory === selectedState)
+        .filter((item) => selectedState === "Todos" || item.territory === selectedState)
         .filter((item) => regime === "Todos" || item.regime === regime)
         .filter((item) => !lawOnly || item.lawStatus === "Si")
         .sort((a, b) => b.opportunity - a.opportunity),
     [selectedState, regime, lawOnly],
   );
 
-  const active = institutions.find((item) => item.id === selected) ?? stateInstitutions[0] ?? visibleInstitutions[0] ?? institutions[0];
-  const comparable = stateInstitutions.length > 0 ? stateInstitutions : visibleInstitutions;
-  const lawCount = selectedStateInventory.filter((item) => item.lawStatus === "Si").length;
-  const noLawCount = selectedStateInventory.filter((item) => item.lawStatus === "No").length;
-  const pendingLawCount = selectedStateInventory.filter((item) => item.lawStatus === "Por verificar").length;
-  const publicCount = selectedStateInventory.filter((item) => item.regime === "Publica").length;
-  const privateCount = selectedStateInventory.filter((item) => item.regime === "Privada").length;
+  const scopeInstitutions = territory === "Todos" ? visibleInstitutions : stateInstitutions;
+  const scopeLabel = territory === "Todos" ? "Sonora + CDMX" : selectedState;
+
+  useEffect(() => {
+    if (scopeInstitutions.length > 0 && !scopeInstitutions.some((item) => item.id === selected)) {
+      setSelected(scopeInstitutions[0].id);
+    }
+  }, [selected, scopeInstitutions]);
+
+  const active = scopeInstitutions.find((item) => item.id === selected) ?? scopeInstitutions[0] ?? institutions[0];
+  const comparable = scopeInstitutions;
+  const lawCount = scopeInstitutions.filter((item) => item.lawStatus === "Si").length;
+  const noLawCount = scopeInstitutions.filter((item) => item.lawStatus === "No").length;
+  const pendingLawCount = scopeInstitutions.filter((item) => item.lawStatus === "Por verificar").length;
+  const publicCount = scopeInstitutions.filter((item) => item.regime === "Publica").length;
+  const privateCount = scopeInstitutions.filter((item) => item.regime === "Privada").length;
 
   const distances = useMemo(
     () =>
-      stateInstitutions
+      scopeInstitutions
         .filter((item) => item.id !== active.id)
         .map((item) => ({ ...item, distance: distanceKm(active, item) }))
         .sort((a, b) => a.distance - b.distance),
-    [active, stateInstitutions],
+    [active, scopeInstitutions],
   );
 
-  const route = useMemo(() => buildRoute(stateInstitutions), [stateInstitutions]);
+  const route = useMemo(() => buildRoute(scopeInstitutions), [scopeInstitutions]);
 
-  function selectMapState(stateName: string) {
+  function selectMapState(stateName: Territory) {
     setSelectedState(stateName);
     if (stateName === "Sonora" || stateName === "CDMX") {
       setTerritory(stateName);
@@ -486,25 +144,23 @@ export default function Home() {
     }
   }
 
-  function selectTerritory(option: Territory | "Todos") {
+  function selectTerritory(option: Scope) {
     setTerritory(option);
-    if (option === "Sonora" || option === "CDMX") {
-      setSelectedState(option);
-      const first = institutions
-        .filter((item) => item.territory === option)
-        .filter((item) => regime === "Todos" || item.regime === regime)
-        .filter((item) => !lawOnly || item.lawStatus === "Si")
-        .sort((a, b) => b.opportunity - a.opportunity)[0];
-      if (first) setSelected(first.id);
-    }
+    setSelectedState(option);
+    const first = institutions
+      .filter((item) => option === "Todos" || item.territory === option)
+      .filter((item) => regime === "Todos" || item.regime === regime)
+      .filter((item) => !lawOnly || item.lawStatus === "Si")
+      .sort((a, b) => b.opportunity - a.opportunity)[0];
+    if (first) setSelected(first.id);
   }
 
   function exportCsv() {
     const rows = [
-      ["universidad", "campus", "estado", "municipio", "regimen", "licenciatura_derecho", "modalidad", "horario", "lat", "lng", "indice"],
+      ["institucion", "unidades_reportadas", "estado", "municipio", "regimen", "licenciatura_derecho", "modalidad", "horario", "lat", "lng", "indice"],
       ...comparable.map((item) => [
         item.name,
-        item.campus,
+        item.reportedUnits.join(" | "),
         item.territory,
         item.municipality,
         item.regime,
@@ -521,7 +177,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `sniaj-${selectedState.toString().toLowerCase().replaceAll(" ", "-")}.csv`;
+    link.download = `sniaj-${scopeLabel.toString().toLowerCase().replaceAll(" ", "-").replaceAll("+", "mas")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -530,17 +186,18 @@ export default function Home() {
     <main className="shell">
       <section className="hero" aria-labelledby="titulo">
         <div>
-          <p className="eyebrow">SNIAJ / inventario individual</p>
-          <h1 id="titulo">Universidades una por una: conteo, Derecho, distancia y ruta.</h1>
+          <p className="eyebrow">SNIAJ / padron oficial ampliado</p>
+          <h1 id="titulo">Sonora y CDMX: instituciones una por una, Derecho, distancia y ruta.</h1>
           <p className="lede">
-            Cada fila representa una universidad/campus individual. La pantalla distingue si imparte Licenciatura en
-            Derecho, si es publica o privada, donde esta ubicada y como se conecta con una ruta academica.
+            Cada fila representa una institucion oficial unica derivada de ANUIES 2024-2025, RENOES, SIGED,
+            SIRVOES/RVOE y directorios publicos. Campus, facultades, escuelas y departamentos se conservan dentro
+            de su institucion sin contarlos como universidades independientes.
           </p>
         </div>
         <aside className="access-panel" aria-label="Estado del inventario">
           <span className="status-dot" />
-          <strong>Inventario piloto verificable</strong>
-          <small>Los conteos son exactos para los registros cargados. El censo oficial requiere importar fuentes completas.</small>
+          <strong>{sourceSummary.recordCount} instituciones oficiales cargadas</strong>
+          <small>Generado el {sourceSummary.generatedAt}. Las distancias son aproximadas cuando la institucion no tiene coordenada exacta.</small>
         </aside>
       </section>
 
@@ -569,7 +226,7 @@ export default function Home() {
       </section>
 
       <section className="metrics" aria-label="Conteos principales">
-        <Metric label={`Total cargado en ${selectedState}`} value={selectedStateInventory.length.toString()} />
+        <Metric label={`Instituciones en ${scopeLabel}`} value={scopeInstitutions.length.toString()} />
         <Metric label="Imparten Derecho" value={lawCount.toString()} />
         <Metric label="No / por verificar" value={`${noLawCount}/${pendingLawCount}`} />
         <Metric label="Publicas / privadas" value={`${publicCount}/${privateCount}`} />
@@ -580,28 +237,29 @@ export default function Home() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Mapa de Mexico</p>
-              <h2>{selectedState}</h2>
+              <h2>{scopeLabel}</h2>
             </div>
-            <span>{selectedStateInventory.length ? `${selectedStateInventory.length} registros` : "pendiente de captura"}</span>
+            <span>{selectedStateInventory.length ? `${selectedStateInventory.length} instituciones` : "pendiente de carga"}</span>
           </div>
           <div className="mexico-map" role="application" aria-label="Mapa de Mexico con estados clicables">
-            <div className="mexico-shape" />
+            <img className="mexico-map-image" src="maps/mexico-states.png" alt="Mapa de Mexico con division estatal" />
             {mexicoStates.map((state) => (
               <button
                 key={state.code}
-                className={`state-dot ${state.status} ${state.code.toLowerCase()} ${selectedState === state.name ? "selected" : ""}`}
-                style={{ left: `${state.x}%`, top: `${state.y}%` }}
+                className={`map-hotspot ${state.status} ${selectedState === state.name ? "selected" : ""}`}
+                style={{ left: `${state.x}%`, top: `${state.y}%`, width: `${state.w}%`, height: `${state.h}%` }}
                 onClick={() => selectMapState(state.name)}
                 aria-label={`Seleccionar ${state.name}`}
                 title={state.name}
               >
-                {state.code}
+                <span>{state.code}</span>
               </button>
             ))}
           </div>
           <div className="legend">
-            <span><i className="pilot" /> Entidad con inventario piloto</span>
+            <span><i className="pilot" /> Entidad con padron ampliado</span>
             <span><i /> Entidad pendiente de carga oficial</span>
+            <span className="map-credit">Mapa base: Wikimedia Commons, CC BY-SA 4.0.</span>
           </div>
         </div>
 
@@ -609,20 +267,20 @@ export default function Home() {
           <div className="panel-head">
             <div>
               <p className="eyebrow">Listado individual</p>
-              <h2>{stateInstitutions.length} universidades filtradas</h2>
+              <h2>{scopeInstitutions.length} instituciones filtradas</h2>
             </div>
           </div>
           <div className="list">
-            {stateInstitutions.length === 0 && (
+            {scopeInstitutions.length === 0 && (
               <div className="empty-state">
-                Este estado aun no tiene universidades cargadas. El siguiente paso es importar SEP, ANUIES, DENUE, RENOES y captura manual verificada.
+                Este estado aun no tiene instituciones cargadas. El siguiente paso es importar fuentes oficiales equivalentes y deduplicarlas.
               </div>
             )}
-            {stateInstitutions.map((item) => (
+            {scopeInstitutions.map((item) => (
               <button key={item.id} className={`row ${active.id === item.id ? "selected" : ""}`} onClick={() => setSelected(item.id)}>
                 <span>
                   <strong>{item.name}</strong>
-                  <small>{item.campus} / {item.municipality} / {item.regime}</small>
+                  <small>{item.unitCount} unidades reportadas / {item.municipality} / {item.regime}</small>
                 </span>
                 <em className={`law-badge ${item.lawStatus === "Si" ? "yes" : item.lawStatus === "No" ? "no" : "pending"}`}>
                   Derecho: {item.lawStatus}
@@ -633,34 +291,36 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="inventory-table panel" aria-label="Tabla de universidades">
+      <section className="inventory-table panel" aria-label="Tabla de instituciones">
         <div className="panel-head">
           <div>
             <p className="eyebrow">Censo cargado</p>
-            <h2>Universidades y Licenciatura en Derecho</h2>
+            <h2>Instituciones y Licenciatura en Derecho</h2>
           </div>
-          <span>{stateInstitutions.length} filas</span>
+          <span>{scopeInstitutions.length} filas</span>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Universidad</th>
-                <th>Campus</th>
+                <th>Institucion</th>
+                <th>Unidades reportadas</th>
                 <th>Municipio</th>
                 <th>Regimen</th>
                 <th>Derecho</th>
+                <th>Programas</th>
                 <th>Ruta desde seleccion</th>
               </tr>
             </thead>
             <tbody>
-              {stateInstitutions.map((item) => (
+              {scopeInstitutions.map((item) => (
                 <tr key={item.id} className={active.id === item.id ? "active-row" : ""} onClick={() => setSelected(item.id)}>
                   <td>{item.name}</td>
-                  <td>{item.campus}</td>
+                  <td>{item.unitCount}</td>
                   <td>{item.municipality}</td>
                   <td>{item.regime}</td>
                   <td>{item.lawStatus}</td>
+                  <td>{item.programCount ?? 0}</td>
                   <td>{active.id === item.id ? "Seleccion" : `${Math.round(distanceKm(active, item))} km`}</td>
                 </tr>
               ))}
@@ -678,7 +338,7 @@ export default function Home() {
               <div key={`${step.id}-${index}`}>
                 <span>{index + 1}</span>
                 <strong>{step.acronym}</strong>
-                <small>{step.municipality} / {step.regime} / Derecho: {step.lawStatus}</small>
+                <small>{step.unitCount} unidades / {step.regime} / Derecho: {step.lawStatus}</small>
               </div>
             ))}
           </div>
@@ -693,12 +353,12 @@ export default function Home() {
               <button key={item.id} onClick={() => setSelected(item.id)}>
                 <span>
                   <strong>{item.name}</strong>
-                  <small>{item.campus} / {item.regime} / Derecho: {item.lawStatus}</small>
+                  <small>{item.unitCount} unidades / {item.regime} / Derecho: {item.lawStatus}</small>
                 </span>
                 <b>{Math.round(item.distance)} km</b>
               </button>
             ))}
-            {distances.length === 0 && <div className="empty-state">Selecciona Sonora o CDMX para ver distancias entre sedes.</div>}
+            {distances.length === 0 && <div className="empty-state">Selecciona Sonora o CDMX para ver distancias entre instituciones.</div>}
           </div>
         </article>
       </section>
@@ -708,7 +368,7 @@ export default function Home() {
           <p className="eyebrow">Ficha institucional</p>
           <h2>{active.name}</h2>
           <div className="tags">
-            <span>{active.campus}</span>
+            <span>{active.unitCount} unidades reportadas</span>
             <span>{active.territory}</span>
             <span>{active.municipality}</span>
             <span>{active.regime}</span>
@@ -719,7 +379,21 @@ export default function Home() {
             <div><dt>Horario</dt><dd>{active.schedule}</dd></div>
             <div><dt>Validez</dt><dd>{active.legalBasis}</dd></div>
             <div><dt>Fuente</dt><dd>{active.source}</dd></div>
+            <div><dt>Precision geografica</dt><dd>{active.coordinatePrecision === "municipio" ? "Municipio" : "Entidad"}</dd></div>
+            <div><dt>Programas ANUIES</dt><dd>{active.programCount ?? 0}</dd></div>
           </dl>
+          <div className="program-list">
+            <strong>Escuelas, campus, facultades o departamentos reportados</strong>
+            {active.reportedUnits.map((unit) => (
+              <span key={unit}>{unit}</span>
+            ))}
+          </div>
+          <div className="program-list">
+            <strong>Programas de Derecho detectados</strong>
+            {(active.lawPrograms?.length ? active.lawPrograms : ["Sin Licenciatura en Derecho detectada"]).map((program) => (
+              <span key={program}>{program}</span>
+            ))}
+          </div>
         </article>
 
         <article className="panel">
@@ -741,6 +415,9 @@ export default function Home() {
           <h2>{active.nextMove}</h2>
           <div className="themes">
             {active.themes.map((theme) => <span key={theme}>{theme}</span>)}
+          </div>
+          <div className="source-list">
+            {sourceSummary.sources.map((source) => <span key={source}>{source}</span>)}
           </div>
           <label className="note-label" htmlFor="note">Nota privada local</label>
           <textarea
@@ -784,7 +461,7 @@ function buildRoute(items: Institution[]) {
   if (!items.length) {
     return {
       title: "Ruta pendiente de captura",
-      note: "Selecciona Sonora o CDMX, o importa universidades de otro estado para calcular una ruta.",
+      note: "Selecciona Sonora o CDMX, o importa instituciones de otro estado para calcular una ruta.",
       steps: [],
     };
   }
@@ -792,13 +469,21 @@ function buildRoute(items: Institution[]) {
     if (a.lawStatus !== b.lawStatus) return a.lawStatus === "Si" ? -1 : 1;
     return b.opportunity - a.opportunity;
   });
+  const territories = new Set(items.map((item) => item.territory));
+  if (territories.size > 1) {
+    return {
+      title: "Ruta Sonora + CDMX: instituciones con Derecho primero",
+      note: "La ruta combinada prioriza instituciones con Derecho confirmado y conserva el orden por oportunidad para revisar ambos estados.",
+      steps,
+    };
+  }
   const title =
     items[0].territory === "Sonora"
-      ? "Ruta Sonora: sedes con Derecho confirmado primero"
-      : "Ruta CDMX: circuito urbano por alcaldia y oportunidad";
+      ? "Ruta Sonora: instituciones con Derecho confirmado primero"
+      : "Ruta CDMX: instituciones por oportunidad";
   const note =
     items[0].territory === "Sonora"
-      ? "La ruta privilegia sedes con Derecho confirmado y marca registros pendientes para verificacion previa."
-      : "La ruta CDMX ordena sedes por cercania y oportunidad para adaptar invitaciones una por una.";
+      ? "La ruta privilegia instituciones con Derecho confirmado y marca registros pendientes para verificacion previa."
+      : "La ruta CDMX ordena instituciones por cercania estimada y oportunidad.";
   return { title, note, steps };
 }
