@@ -2,7 +2,7 @@
 
 MVP del Sistema Nacional de Inteligencia Academica Juridica.
 
-Autor unico: Luis Antonio Montanez Escobar, salvo indicacion expresa en contrario.
+Autor único: Luis Antonio Montañez Escobar, salvo indicación expresa en contrario.
 
 La app permite consultar un mapa de Mexico, abrir Sonora y Ciudad de Mexico,
 revisar instituciones de educacion superior una por una, distinguir publicas y
@@ -18,10 +18,12 @@ https://luismesco.github.io/sniaj-sonora-cdmx-app/
 ## Alcance actual
 
 - Mapa nacional con Sonora y CDMX resaltadas y clicables.
+- Resumen estatal emergente con cifras oficiales y filtros previos al inventario.
 - 360 instituciones oficiales unicas: 82 en Sonora y 278 en CDMX.
 - 157 instituciones con Licenciatura en Derecho detectada: 29 en Sonora y 128 en CDMX.
 - Escuelas, campus, facultades y departamentos conservados como unidades subordinadas, sin inflar el numero de instituciones.
 - Filtros por territorio, regimen y oferta de Derecho.
+- Enlaces que conservan estado, regimen y Derecho al recargar o compartir.
 - Ranking de oportunidad academica.
 - Ficha institucional con modalidad, horario, validez y fuente.
 - Distancias estimadas desde la institucion seleccionada.

@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import appDataset from "../data/processed/app_universities_sonora_cdmx.json";
 
 type Territory = "Sonora" | "CDMX";
 type Regime = "Publica" | "Privada";
 type LawStatus = "Si" | "No" | "Por verificar";
 type Scope = Territory | "Todos";
+type PendingFilters = {
+  territory: Territory;
+  regime: Regime | "Todos";
+  lawOnly: boolean;
+};
 
 type Institution = {
   id: string;
@@ -74,14 +79,13 @@ export default function Home() {
   const [territory, setTerritory] = useState<Scope>("Todos");
   const [regime, setRegime] = useState<Regime | "Todos">("Todos");
   const [lawOnly, setLawOnly] = useState(false);
-  const [selectedState, setSelectedState] = useState<Scope>("Todos");
   const [selected, setSelected] = useState(institutions[0]?.id ?? "");
   const [note, setNote] = useState("");
-
-  const selectedStateInventory = useMemo(
-    () => institutions.filter((item) => selectedState === "Todos" || item.territory === selectedState),
-    [selectedState],
-  );
+  const [pendingFilters, setPendingFilters] = useState<PendingFilters | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const mapTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const restoreMapFocusRef = useRef(true);
 
   const visibleInstitutions = useMemo(
     () =>
@@ -93,24 +97,68 @@ export default function Home() {
     [territory, regime, lawOnly],
   );
 
-  const stateInstitutions = useMemo(
-    () =>
-      institutions
-        .filter((item) => selectedState === "Todos" || item.territory === selectedState)
-        .filter((item) => regime === "Todos" || item.regime === regime)
-        .filter((item) => !lawOnly || item.lawStatus === "Si")
-        .sort((a, b) => b.opportunity - a.opportunity),
-    [selectedState, regime, lawOnly],
+  const scopeInstitutions = visibleInstitutions;
+  const scopeLabel = territory === "Todos" ? "Sonora + CDMX" : territory;
+  const selectedStateInventory = institutions.filter(
+    (item) => territory === "Todos" || item.territory === territory,
   );
 
-  const scopeInstitutions = territory === "Todos" ? visibleInstitutions : stateInstitutions;
-  const scopeLabel = territory === "Todos" ? "Sonora + CDMX" : selectedState;
+  const pendingBase = useMemo(
+    () =>
+      pendingFilters
+        ? institutions.filter((item) => item.territory === pendingFilters.territory)
+        : [],
+    [pendingFilters],
+  );
+  const pendingResults = useMemo(
+    () =>
+      pendingBase
+        .filter(
+          (item) =>
+            pendingFilters?.regime === "Todos" ||
+            item.regime === pendingFilters?.regime,
+        )
+        .filter(
+          (item) =>
+            !pendingFilters?.lawOnly || item.lawStatus === "Si",
+        ),
+    [pendingBase, pendingFilters],
+  );
+  const pendingSummary = {
+    total: pendingBase.length,
+    law: pendingBase.filter((item) => item.lawStatus === "Si").length,
+    public: pendingBase.filter((item) => item.regime === "Publica").length,
+    private: pendingBase.filter((item) => item.regime === "Privada").length,
+    units: pendingBase.reduce((total, item) => total + item.unitCount, 0),
+  };
 
   useEffect(() => {
     if (scopeInstitutions.length > 0 && !scopeInstitutions.some((item) => item.id === selected)) {
       setSelected(scopeInstitutions[0].id);
     }
   }, [selected, scopeInstitutions]);
+
+  useEffect(() => {
+    const filters = readUrlFilters();
+    if (
+      filters.territory === "Todos" &&
+      filters.regime === "Todos" &&
+      !filters.lawOnly
+    ) {
+      return;
+    }
+    setTerritory(filters.territory);
+    setRegime(filters.regime);
+    setLawOnly(filters.lawOnly);
+    const first = filterInventory(filters.territory, filters.regime, filters.lawOnly)[0];
+    if (first) setSelected(first.id);
+  }, []);
+
+  useEffect(() => {
+    if (pendingFilters && dialogRef.current && !dialogRef.current.open) {
+      dialogRef.current.showModal();
+    }
+  }, [pendingFilters]);
 
   const active = scopeInstitutions.find((item) => item.id === selected) ?? scopeInstitutions[0] ?? institutions[0];
   const comparable = scopeInstitutions;
@@ -131,28 +179,77 @@ export default function Home() {
 
   const route = useMemo(() => buildRoute(scopeInstitutions), [scopeInstitutions]);
 
-  function selectMapState(stateName: Territory) {
-    setSelectedState(stateName);
-    if (stateName === "Sonora" || stateName === "CDMX") {
-      setTerritory(stateName);
-      const first = institutions
-        .filter((item) => item.territory === stateName)
-        .filter((item) => regime === "Todos" || item.regime === regime)
-        .filter((item) => !lawOnly || item.lawStatus === "Si")
-        .sort((a, b) => b.opportunity - a.opportunity)[0];
-      if (first) setSelected(first.id);
+  function openStateSummary(
+    stateName: Territory,
+    trigger: HTMLButtonElement,
+  ) {
+    mapTriggerRef.current = trigger;
+    restoreMapFocusRef.current = true;
+    setPendingFilters({
+      territory: stateName,
+      regime,
+      lawOnly,
+    });
+  }
+
+  function cancelStateSummary() {
+    restoreMapFocusRef.current = true;
+    dialogRef.current?.close();
+  }
+
+  function handleDialogClose() {
+    setPendingFilters(null);
+    if (restoreMapFocusRef.current) {
+      requestAnimationFrame(() => mapTriggerRef.current?.focus());
     }
+  }
+
+  function confirmStateSummary() {
+    if (!pendingFilters || pendingResults.length === 0) return;
+    restoreMapFocusRef.current = false;
+    setTerritory(pendingFilters.territory);
+    setRegime(pendingFilters.regime);
+    setLawOnly(pendingFilters.lawOnly);
+    setSelected(pendingResults[0].id);
+    writeUrlFilters(
+      pendingFilters.territory,
+      pendingFilters.regime,
+      pendingFilters.lawOnly,
+    );
+    dialogRef.current?.close();
+    requestAnimationFrame(() => {
+      listHeadingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      listHeadingRef.current?.focus({ preventScroll: true });
+    });
   }
 
   function selectTerritory(option: Scope) {
     setTerritory(option);
-    setSelectedState(option);
-    const first = institutions
-      .filter((item) => option === "Todos" || item.territory === option)
-      .filter((item) => regime === "Todos" || item.regime === regime)
-      .filter((item) => !lawOnly || item.lawStatus === "Si")
-      .sort((a, b) => b.opportunity - a.opportunity)[0];
+    const first = filterInventory(option, regime, lawOnly)[0];
     if (first) setSelected(first.id);
+    writeUrlFilters(option, regime, lawOnly);
+  }
+
+  function selectRegime(option: Regime | "Todos") {
+    setRegime(option);
+    const first = filterInventory(territory, option, lawOnly)[0];
+    if (first) setSelected(first.id);
+    writeUrlFilters(territory, option, lawOnly);
+  }
+
+  function selectLawOnly(option: boolean) {
+    setLawOnly(option);
+    const first = filterInventory(territory, regime, option)[0];
+    if (first) setSelected(first.id);
+    writeUrlFilters(territory, regime, option);
+  }
+
+  function clearFilters() {
+    setTerritory("Todos");
+    setRegime("Todos");
+    setLawOnly(false);
+    if (institutions[0]) setSelected(institutions[0].id);
+    writeUrlFilters("Todos", "Todos", false);
   }
 
   function exportCsv() {
@@ -211,13 +308,13 @@ export default function Home() {
         </div>
         <div className="segmented" aria-label="Regimen">
           {(["Todos", "Publica", "Privada"] as const).map((option) => (
-            <button key={option} className={regime === option ? "active" : ""} onClick={() => setRegime(option)}>
+            <button key={option} className={regime === option ? "active" : ""} onClick={() => selectRegime(option)}>
               {option}
             </button>
           ))}
         </div>
         <label className="toggle">
-          <input type="checkbox" checked={lawOnly} onChange={(event) => setLawOnly(event.target.checked)} />
+          <input type="checkbox" checked={lawOnly} onChange={(event) => selectLawOnly(event.target.checked)} />
           Solo con Derecho
         </label>
         <button className="export" onClick={exportCsv} aria-label="Exportar resultados filtrados en CSV">
@@ -241,18 +338,27 @@ export default function Home() {
             </div>
             <span>{selectedStateInventory.length ? `${selectedStateInventory.length} instituciones` : "pendiente de carga"}</span>
           </div>
-          <div className="mexico-map" role="application" aria-label="Mapa de Mexico con estados clicables">
-            <img className="mexico-map-image" src="maps/mexico-states.png" alt="Mapa de Mexico con division estatal" />
+          <div className="mexico-map" aria-label="Mapa de Mexico con estados clicables">
+            <img
+              className="mexico-map-image"
+              src="maps/mexico-states.png"
+              alt="Mapa de Mexico con division estatal"
+              width="1280"
+              height="838"
+              fetchPriority="high"
+            />
             {mexicoStates.map((state) => (
               <button
                 key={state.code}
-                className={`map-hotspot ${state.status} ${selectedState === state.name ? "selected" : ""}`}
+                className={`map-hotspot state-${state.code.toLowerCase()} ${state.status} ${territory === state.name ? "selected" : ""}`}
                 style={{ left: `${state.x}%`, top: `${state.y}%`, width: `${state.w}%`, height: `${state.h}%` }}
-                onClick={() => selectMapState(state.name)}
-                aria-label={`Seleccionar ${state.name}`}
+                onClick={(event) => openStateSummary(state.name, event.currentTarget)}
+                aria-label={`Ver resumen de ${state.name}`}
+                aria-haspopup="dialog"
+                aria-expanded={pendingFilters?.territory === state.name}
                 title={state.name}
               >
-                <span>{state.code}</span>
+                <span>{state.name}</span>
               </button>
             ))}
           </div>
@@ -264,10 +370,25 @@ export default function Home() {
         </div>
 
         <div className="panel ranking-panel">
+          {(territory !== "Todos" || regime !== "Todos" || lawOnly) && (
+            <div className="filter-context" aria-live="polite">
+              <span>{scopeLabel}</span>
+              <strong>{scopeInstitutions.length} instituciones</strong>
+              {regime !== "Todos" && <span>{regime}</span>}
+              {lawOnly && <span>Solo con Derecho</span>}
+              <button type="button" onClick={clearFilters}>Limpiar filtros</button>
+            </div>
+          )}
           <div className="panel-head">
             <div>
               <p className="eyebrow">Listado individual</p>
-              <h2>{scopeInstitutions.length} instituciones filtradas</h2>
+              <h2
+                id="institution-list-title"
+                ref={listHeadingRef}
+                tabIndex={-1}
+              >
+                {scopeInstitutions.length} instituciones filtradas
+              </h2>
             </div>
           </div>
           <div className="list">
@@ -290,6 +411,139 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <dialog
+        ref={dialogRef}
+        className="state-dialog"
+        aria-labelledby="state-dialog-title"
+        aria-describedby="state-dialog-description"
+        onCancel={(event) => {
+          event.preventDefault();
+          cancelStateSummary();
+        }}
+        onClose={handleDialogClose}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) cancelStateSummary();
+        }}
+      >
+        <div className="state-dialog-content">
+          <header className="state-dialog-head">
+            <div>
+              <p className="eyebrow">Resumen estatal</p>
+              <h2 id="state-dialog-title">Resumen de {pendingFilters?.territory}</h2>
+              <p id="state-dialog-description">
+                Consulta la cobertura oficial y elige filtros antes de abrir el inventario.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="dialog-close"
+              aria-label="Cerrar resumen"
+              onClick={cancelStateSummary}
+            >
+              ×
+            </button>
+          </header>
+
+          <div className="state-summary-grid" aria-label="Cobertura de la entidad">
+            <div>
+              <strong data-testid="summary-total">{pendingSummary.total}</strong>
+              <span>Instituciones</span>
+            </div>
+            <div>
+              <strong data-testid="summary-law">{pendingSummary.law}</strong>
+              <span>Con Derecho</span>
+            </div>
+            <div>
+              <strong data-testid="summary-public">{pendingSummary.public}</strong>
+              <span>Públicas</span>
+            </div>
+            <div>
+              <strong data-testid="summary-private">{pendingSummary.private}</strong>
+              <span>Privadas</span>
+            </div>
+          </div>
+          <p className="state-unit-summary">
+            {pendingSummary.units} escuelas, campus, facultades o departamentos reportados.
+          </p>
+
+          <div className="dialog-filter-group">
+            <div className="dialog-filter-head">
+              <span className="dialog-filter-label">Régimen</span>
+              <button
+                type="button"
+                className="dialog-reset"
+                onClick={() =>
+                  setPendingFilters((current) =>
+                    current ? { ...current, regime: "Todos", lawOnly: false } : current,
+                  )
+                }
+              >
+                Restablecer filtros
+              </button>
+            </div>
+            <div className="segmented" aria-label="Régimen para el resumen">
+              {([
+                ["Todos", "Todas"],
+                ["Publica", "Públicas"],
+                ["Privada", "Privadas"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={pendingFilters?.regime === value ? "active" : ""}
+                  aria-pressed={pendingFilters?.regime === value}
+                  onClick={() =>
+                    setPendingFilters((current) =>
+                      current ? { ...current, regime: value } : current,
+                    )
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="toggle dialog-law-toggle">
+            <input
+              type="checkbox"
+              checked={pendingFilters?.lawOnly ?? false}
+              onChange={(event) =>
+                setPendingFilters((current) =>
+                  current ? { ...current, lawOnly: event.target.checked } : current,
+                )
+              }
+            />
+            Solo con Derecho
+          </label>
+
+          <div className="dialog-result" aria-live="polite">
+            <strong>{pendingResults.length}</strong>
+            <span>instituciones coinciden con estos filtros</span>
+          </div>
+
+          {pendingResults.length === 0 && (
+            <p className="dialog-empty">
+              No hay resultados con esta combinación. Cambia el régimen o desactiva Derecho.
+            </p>
+          )}
+
+          <div className="dialog-actions">
+            <button type="button" className="dialog-cancel" onClick={cancelStateSummary}>
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="dialog-primary"
+              disabled={pendingResults.length === 0}
+              onClick={confirmStateSummary}
+            >
+              Ver {pendingResults.length} instituciones
+            </button>
+          </div>
+        </div>
+      </dialog>
 
       <section className="inventory-table panel" aria-label="Tabla de instituciones">
         <div className="panel-head">
@@ -314,8 +568,16 @@ export default function Home() {
             </thead>
             <tbody>
               {scopeInstitutions.map((item) => (
-                <tr key={item.id} className={active.id === item.id ? "active-row" : ""} onClick={() => setSelected(item.id)}>
-                  <td>{item.name}</td>
+                <tr key={item.id} className={active.id === item.id ? "active-row" : ""}>
+                  <td>
+                    <button
+                      type="button"
+                      className="table-institution"
+                      onClick={() => setSelected(item.id)}
+                    >
+                      {item.name}
+                    </button>
+                  </td>
                   <td>{item.unitCount}</td>
                   <td>{item.municipality}</td>
                   <td>{item.regime}</td>
@@ -422,14 +684,64 @@ export default function Home() {
           <label className="note-label" htmlFor="note">Nota privada local</label>
           <textarea
             id="note"
+            name="private-note"
+            autoComplete="off"
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Ej. validar RVOE, llamar a coordinacion, revisar calendario..."
+            placeholder="Ej. validar RVOE, llamar a coordinación, revisar calendario…"
           />
         </article>
       </section>
     </main>
   );
+}
+
+function filterInventory(
+  territory: Scope,
+  regime: Regime | "Todos",
+  lawOnly: boolean,
+) {
+  return institutions
+    .filter((item) => territory === "Todos" || item.territory === territory)
+    .filter((item) => regime === "Todos" || item.regime === regime)
+    .filter((item) => !lawOnly || item.lawStatus === "Si")
+    .sort((a, b) => b.opportunity - a.opportunity);
+}
+
+function readUrlFilters(): {
+  territory: Scope;
+  regime: Regime | "Todos";
+  lawOnly: boolean;
+} {
+  const params = new URLSearchParams(window.location.search);
+  const stateParam = params.get("estado");
+  const regimeParam = params.get("regimen");
+  return {
+    territory:
+      stateParam === "Sonora" || stateParam === "CDMX"
+        ? stateParam
+        : "Todos",
+    regime:
+      regimeParam === "Publica" || regimeParam === "Privada"
+        ? regimeParam
+        : "Todos",
+    lawOnly: params.get("derecho") === "1",
+  };
+}
+
+function writeUrlFilters(
+  territory: Scope,
+  regime: Regime | "Todos",
+  lawOnly: boolean,
+) {
+  const url = new URL(window.location.href);
+  if (territory === "Todos") url.searchParams.delete("estado");
+  else url.searchParams.set("estado", territory);
+  if (regime === "Todos") url.searchParams.delete("regimen");
+  else url.searchParams.set("regimen", regime);
+  if (lawOnly) url.searchParams.set("derecho", "1");
+  else url.searchParams.delete("derecho");
+  window.history.replaceState({}, "", url);
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

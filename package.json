@@ -1,7 +1,7 @@
 {
   "name": "sniaj-sonora-cdmx",
   "version": "0.2.0",
-  "author": "Luis Antonio Montanez Escobar",
+  "author": "Luis Antonio Montañez Escobar",
   "type": "module",
   "engines": {
     "node": ">=22.13.0"
@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "pnpm run build && node --test tests/*.test.mjs",
+    "test:ux": "python3 tests/map-summary-smoke.py",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

@@ -39,6 +39,7 @@ textarea {
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .shell {
@@ -70,6 +71,7 @@ h2 {
   font-family: Georgia, Cambria, serif;
   font-weight: 700;
   letter-spacing: 0;
+  text-wrap: balance;
 }
 
 h1 {
@@ -191,6 +193,7 @@ h2 {
 .metric strong {
   font-family: Georgia, Cambria, serif;
   font-size: clamp(1.8rem, 3vw, 3.2rem);
+  font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
@@ -333,7 +336,6 @@ h2 {
   place-items: center;
   border: 0;
   border-radius: 8px;
-  outline: none;
   background: rgba(11, 79, 122, 0.32);
   box-shadow: 0 12px 24px rgba(6, 36, 59, 0.18), inset 0 0 0 2px rgba(255, 253, 247, 0.75);
   transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -353,11 +355,56 @@ h2 {
 }
 
 .map-hotspot.selected,
-.map-hotspot:hover,
-.map-hotspot:focus-visible {
+.map-hotspot:hover {
   background: rgba(6, 36, 59, 0.52);
   box-shadow: 0 16px 28px rgba(6, 36, 59, 0.24), inset 0 0 0 3px #d6c5a8;
   transform: translateY(-1px);
+}
+
+.map-hotspot:focus-visible {
+  outline: 3px solid #fffdf7;
+  outline-offset: 3px;
+  background: rgba(6, 36, 59, 0.62);
+  box-shadow: 0 0 0 6px var(--blue-deep);
+}
+
+.map-hotspot.state-son {
+  clip-path: polygon(12% 0, 83% 4%, 100% 35%, 77% 100%, 30% 88%, 0 38%);
+}
+
+.map-hotspot.state-cdmx {
+  min-width: 48px;
+  min-height: 48px;
+  width: 48px !important;
+  height: 48px !important;
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
+.map-hotspot.state-cdmx::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 50%;
+  width: 20px;
+  height: 2px;
+  background: var(--blue-deep);
+}
+
+.map-hotspot.state-cdmx span {
+  position: absolute;
+  left: calc(100% + 7px);
+  min-width: max-content;
+}
+
+.map-hotspot.state-cdmx:hover {
+  transform: translate(-50%, calc(-50% - 1px));
+}
+
+.map-hotspot.state-cdmx:focus-visible {
+  transform: translate(-50%, -50%);
 }
 
 .legend {
@@ -392,6 +439,240 @@ h2 {
   background: var(--blue);
 }
 
+.state-dialog {
+  width: min(680px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  margin: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0;
+  color: var(--ink);
+  background: var(--panel);
+  box-shadow: 0 28px 80px rgba(6, 36, 59, 0.34);
+}
+
+.state-dialog::backdrop {
+  background: rgba(6, 24, 37, 0.64);
+  backdrop-filter: blur(3px);
+}
+
+.state-dialog-content {
+  padding: 24px;
+}
+
+.state-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: start;
+}
+
+.state-dialog-head h2 {
+  text-wrap: balance;
+}
+
+.state-dialog-head p:last-child {
+  max-width: 520px;
+  margin: 9px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.dialog-close {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--blue-deep);
+  background: var(--bone);
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.dialog-close:hover,
+.dialog-close:focus-visible {
+  color: #fff;
+  background: var(--blue-deep);
+}
+
+.state-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: 22px;
+  border-block: 1px solid var(--line);
+  background: var(--line);
+}
+
+.state-summary-grid div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 16px 12px;
+  background: var(--panel);
+}
+
+.state-summary-grid strong,
+.dialog-result strong {
+  font-family: Georgia, Cambria, serif;
+  font-size: 2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.state-summary-grid span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.state-unit-summary {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.dialog-filter-group {
+  margin-top: 20px;
+}
+
+.dialog-filter-label {
+  display: block;
+  color: var(--blue-deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.dialog-filter-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.dialog-filter-head .dialog-reset {
+  min-height: 32px;
+  border: 0;
+  padding: 4px;
+  color: var(--blue);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.dialog-filter-group .segmented {
+  width: 100%;
+}
+
+.dialog-filter-group .segmented button {
+  flex: 1;
+}
+
+.dialog-law-toggle {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.dialog-result {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.dialog-result span {
+  color: var(--muted);
+}
+
+.dialog-empty {
+  margin: 10px 0 0;
+  color: #7a2d20;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.dialog-actions button {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 14px;
+  font-weight: 800;
+}
+
+.dialog-cancel {
+  color: var(--ink);
+  background: var(--bone);
+}
+
+.dialog-primary {
+  color: #fff;
+  background: var(--blue-deep);
+  border-color: var(--blue-deep) !important;
+}
+
+.dialog-actions button:hover,
+.dialog-actions button:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(11, 79, 122, 0.2);
+}
+
+.dialog-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.filter-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.filter-context span,
+.filter-context strong {
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bone);
+  font-size: 0.78rem;
+}
+
+.filter-context button {
+  margin-left: auto;
+  border: 0;
+  padding: 8px;
+  color: var(--blue);
+  background: transparent;
+  font-weight: 800;
+}
+
+#institution-list-title {
+  scroll-margin-top: 88px;
+}
+
+#institution-list-title:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 5px;
+}
+
 .list {
   display: grid;
   gap: 10px;
@@ -409,6 +690,8 @@ h2 {
   padding: 12px;
   text-align: left;
   background: #fff;
+  content-visibility: auto;
+  contain-intrinsic-size: 74px;
 }
 
 .row.selected {
@@ -494,6 +777,10 @@ td {
   vertical-align: top;
 }
 
+td {
+  font-variant-numeric: tabular-nums;
+}
+
 th {
   color: var(--blue-deep);
   background: var(--bone);
@@ -501,13 +788,29 @@ th {
   text-transform: uppercase;
 }
 
-tbody tr {
-  cursor: pointer;
-}
-
 tbody tr:hover,
 .active-row {
   background: var(--blue-soft);
+}
+
+.table-institution {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  color: var(--blue-deep);
+  background: transparent;
+  text-align: left;
+  font-weight: 800;
+}
+
+.table-institution:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+.table-institution:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 4px;
 }
 
 .route-steps,
@@ -784,8 +1087,55 @@ textarea {
     padding: 0.32rem 0.42rem;
   }
 
+  .map-hotspot.state-cdmx {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .state-dialog {
+    width: 100%;
+    max-width: none;
+    max-height: min(92dvh, 760px);
+    margin: auto 0 0;
+    border-width: 1px 0 0;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .state-dialog-content {
+    padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .state-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dialog-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .dialog-primary {
+    grid-row: 1;
+  }
+
+  .filter-context button {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+  }
+
   .bar,
   .weights div {
     grid-template-columns: 84px 1fr 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
